@@ -16,7 +16,7 @@ def base_exception_handler(exc, context):
     if isinstance(exc, APIException):
         print("Details of APIException", exc.get_full_details())
         response.data = {"details": exc.get_full_details()}
-    if isinstance(exc, ValidationError):
+    elif isinstance(exc, ValidationError):
         # here prepare the 'custom_error_response' and
         # set the custom response data on response object
         response.data = {

@@ -6,9 +6,11 @@ from django.db import models
 import uuid
 from django.contrib.auth.models import User
 
+from QAPortal.settings import BASE_DIR
 
-def upload_path(instance, filename):
-    return "/".join(["ProfileImage", instance.name])
+
+# def upload_path(instance, filename):
+#     return BASE_DIR.join(["ProfileImage", filename])
 
 
 class Profile(models.Model):
@@ -16,7 +18,8 @@ class Profile(models.Model):
     profileImage = models.ImageField(
         blank=True,
         null=True,
-        upload_to=upload_path,
+        upload_to="images/profileImages",
+        default="images\profileImages\mehdi.png",
     )
     id = models.UUIDField(
         default=uuid.uuid4, unique=True, primary_key=True, editable=False

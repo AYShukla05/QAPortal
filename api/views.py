@@ -21,6 +21,7 @@ from .serializer import (
     # RegisterSerializer,
     SubscriptionSerializer,
 )
+
 # from api import serializer
 
 
@@ -33,6 +34,8 @@ from .serializer import (
 def createUser(request):
     data = request.data
     print(data)
+    files = request.FILES
+    print("\n\nFiles\n\n", files, "\n\n")
     try:
         print("\n\n\n\nData\n\n\n\n", data)
         user = User.objects.create()
@@ -49,8 +52,8 @@ def createUser(request):
             name=data["name"],
             username=user.username,
             email=user.email,
-            profile_image=data['profileImage'],
             password=user.password,
+            profileImage = files["profileImage"]
         )
         profile.save()
         print("Id", user.id)
