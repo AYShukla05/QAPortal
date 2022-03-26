@@ -27,7 +27,8 @@ urlpatterns = [
     path("subscribe", views.subscribe),
     path("get-subscribed", views.getSubscribed),
     path("get-notifications", views.getNotifications),
-    path("get-my-profile", views.getMyProfile)
+    path("get-my-profile", views.getMyProfile),
+    path("change-password", views.changePassword)
 ]
 
 

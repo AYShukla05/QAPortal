@@ -58,9 +58,7 @@ class Vote(models.Model):
 
 
 class Comment(models.Model):
-    owner = models.ForeignKey(
-        Profile, on_delete=models.SET_DEFAULT, null=True, default="DELETED"
-    )
+    owner = models.ForeignKey(Profile, on_delete=models.SET_NULL, null=True)
     post = models.ForeignKey(Post, on_delete=models.CASCADE, null=True)
     body = models.TextField()
     created = models.DateTimeField(auto_now_add=True)
@@ -74,9 +72,7 @@ class Comment(models.Model):
 
 class Notification(models.Model):
     owner = models.ForeignKey(Profile, on_delete=models.CASCADE, null=True)
-    post = models.ForeignKey(
-        Post, on_delete=models.SET_DEFAULT, null=True, default="DELETED"
-    )
+    post = models.ForeignKey(Post, on_delete=models.SET_NULL, null=True)
     messages = models.TextField(max_length=1000)
 
     def __str__(self):

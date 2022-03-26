@@ -18,32 +18,21 @@ from .serializer import (
     NotificationSerializer,
     PostSerializer,
     ProfileSerializer,
-    # RegisterSerializer,
     SubscriptionSerializer,
 )
 
 # from api import serializer
 
 
-# class RegisterView(generics.CreateAPIView):
-#     queryset = User.objects.all()
-#     serializer_class = RegisterSerializer
-# @permission_classes([AllowAny])
 @csrf_exempt
 @api_view(["POST"])
 def createUser(request):
     data = request.data
-    print(data)
-    files = request.FILES
-    print("\n\nFiles\n\n", files, "\n\n")
     try:
-        print("\n\n\n\nData\n\n\n\n", data)
-        user = User.objects.create()
-        # user.name = data["name"]
-        user.username = data["username"]
-        user.email = data["email"]
+        print("\n\n\nData", data)
+        user = User.objects.create(username=data["username"], email=data["email"])
         password = data["password"]
-        password1 = data["password1"]
+        password1 = data["confirm-password"]
         if password == password1:
             user.set_password(data["password"])
         user.save()
@@ -53,35 +42,27 @@ def createUser(request):
             username=user.username,
             email=user.email,
             password=user.password,
-            profileImage = files["profileImage"]
+            profileImage=data["profileImage"],
         )
+        if profile.profileImage == "":
+            profile.profileImage = "images\profileImages\mehdi.png"
         profile.save()
-        print("Id", user.id)
-        print("Username", user.username)
-        # print("Name", user.name)
-        print("Email", user.email)
-        print("Password", user.password)
 
         profiles = Profile.objects.all()
         serializer = ProfileSerializer(profiles, many=True)
         return Response(serializer.data)
-    except:
+    except IntegrityError:
         raise ValidationError()
 
 
 @api_view(["GET"])
-# @permission_classes([IsAuthenticated,AllowAny])
-# @permission_classes([AllowAny])
 def getPosts(request):
-    print("Request Header", request.headers)
     posts = Post.objects.all()
     serializer = PostSerializer(posts, many=True)
     return Response(serializer.data)
 
 
 @api_view(["GET"])
-# @permission_classes([IsAuthenticated])
-# @permission_classes([AllowAny])
 def getPost(request, pk):
     post = Post.objects.get(id=pk)
     comments = Comment.objects.filter(post=post)
@@ -96,7 +77,6 @@ def getPost(request, pk):
 def createPost(request):
     post = Post.objects.create()
     data = request.data
-    # post.owner = Profile.objects.get(id="314f8a33-2afd-40d5-bb33-2f755b8009c2")
     post.owner = request.user.profile
     post.title = data["title"]
     post.body = data["body"]
@@ -132,14 +112,9 @@ def deletePost(request, pk):
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def addVote(request, pk):
-    print("Request")
-    print(request, ".......", pk)
     post = Post.objects.get(id=pk)
     user = request.user.profile
-    # user = Profile.objects.get(id="871e8510-903c-4c5c-9d6b-5f16d735ea16")
     data = request.data
-    print("Data")
-    print(data)
     vote, created = Vote.objects.get_or_create(
         owner=user,
         post=post,
@@ -156,14 +131,11 @@ def addVote(request, pk):
 @permission_classes([IsAuthenticated])
 @api_view(["POST"])
 def addComment(request, pk):
-    print(request)
     postObj = Post.objects.get(id=pk)
     data = request.data
-    print(data)
-    comment = Comment.objects.create()
-    comment.owner = request.user.profile
-    comment.post = postObj
-    comment.body = data["body"]
+    comment = Comment.objects.create(
+        owner=request.user.profile, post=postObj, body=data["body"]
+    )
     comment.save()
     today = datetime.datetime.now()
     date_time = today.strftime("%H:%M:%S, %m/%d/%Y ")
@@ -213,7 +185,6 @@ def deleteComment(request, pk):
 
 
 @api_view(["GET"])
-# @permission_classes([IsAuthenticated])
 @permission_classes([AllowAny])
 def getProfiles(request):
     profiles = Profile.objects.all()
@@ -222,7 +193,6 @@ def getProfiles(request):
 
 
 @api_view(["GET"])
-# @permission_classes([IsAuthenticated])
 @permission_classes([AllowAny])
 def getProfile(request, pk):
     profile = Profile.objects.get(pk=pk)
@@ -250,20 +220,36 @@ def profile(request):
 @api_view(["PUT"])
 @permission_classes([IsAuthenticated])
 def updateProfile(request, pk):
-    profile = Profile.objects.get(id=pk)
-    if request.user.profile == profile:
-        data = request.data
-        profile.name = data["name"]
-        profile.username = data["username"]
-        profile.email = data["email"]
-        profile.password = data["password"]
-        profile.password1 = data["password1"]
-        profile.save()
-        user = profile.user
-        user.set_password(profile.password)
+    data = request.data
+
+    if request.user.check_password(data["password"]):
+        profile = Profile.objects.get(id=pk)
+        if request.user.profile == profile:
+            profile.name = data["name"]
+            profile.username = data["username"]
+            profile.email = data["email"]
+            profile.profileImage = data["profileImage"]
+            if profile.profileImage == "":
+                profile.profileImage = "images\profileImages\mehdi.png"
+
+            profile.save()
+            serializer = ProfileSerializer(profile, many=False)
+            return Response(serializer.data)
+
+
+@api_view(["PUT"])
+@permission_classes([IsAuthenticated])
+def changePassword(request):
+    user = request.user
+    profile = user.profile
+    data = request.data
+    if request.user.check_password(data["password"]):
+        user.set_password(data["newPassword"])
         user.save()
-        serializer = ProfileSerializer(profile, many=False)
-        return Response(serializer.data)
+
+    profile = request.user.profile
+    serializer = ProfileSerializer(profile, many=False)
+    return Response(serializer.data)
 
 
 @api_view(["DELETE"])
@@ -272,7 +258,9 @@ def deleteProfile(request, pk):
     profile = Profile.objects.get(id=pk)
     if request.user.profile == profile:
         profile.delete()
-    return Response()
+    profiles = Profile.objects.all()
+    serializer = ProfileSerializer(profiles, many=True)
+    return Response(serializer.data)
 
 
 @api_view(["GET"])
@@ -290,10 +278,9 @@ def getMyProfile(request):
             "Posts": postserializer.data,
             "Comments": commentserializer.data,
         }
-        # print(response)
         return Response(response)
     except Exception as e:
-        raise APIException(e)
+        raise Exception(e)
 
 
 @csrf_exempt
