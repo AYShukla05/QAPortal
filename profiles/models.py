@@ -27,6 +27,7 @@ class Profile(models.Model):
     username = models.CharField(max_length=200)
     name = models.CharField(max_length=200)
     email = models.EmailField(max_length=200, null=True, blank=True)
+    is_verified = models.BooleanField(default=False)
     password = models.CharField(max_length=1000)
 
     def __str__(self):

@@ -1,15 +1,24 @@
 # Create your views here.
 import datetime
-from rest_framework import serializers
+
+# from django.forms import ValidationError
+
 from django.db import IntegrityError
+from django.http import JsonResponse
+
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
+from rest_framework.permissions import IsAuthenticated, AllowAny
 
 from django.contrib.auth.models import User
 from django.views.decorators.csrf import csrf_exempt
-from rest_framework import generics
+
+
+from django.core.mail import send_mail
+import uuid
+from django.conf import settings
+
 
 from profiles.models import Profile, Subscription
 from posts.models import Post, Comment, Vote, Notification
@@ -51,12 +60,56 @@ def createUser(request):
         profiles = Profile.objects.all()
         serializer = ProfileSerializer(profiles, many=True)
         return Response(serializer.data)
-    except IntegrityError:
+    except Exception as e:
         raise ValidationError()
+    # except Exception as e:
+    #     return JsonResponse({"message": "Username or Email already exists", "error":"Email and Username should be unique", "status": 400})
+
+
+@api_view(["POST"])
+@csrf_exempt
+def forgetPassword(request):
+    data = request.data
+    print("DATA", data)
+    name = data["username"]
+    profile = Profile.objects.get(username=name)
+    email = data["email"]
+    if profile.email != email:
+        return JsonResponse({"message": "Email and username does not match"})
+    send_forget_password_mail(email, profile.id)
+    print("Send mail called\n\n\n")
+    # Send email
+    return JsonResponse(
+        {
+            "message": "A reset password link is sent to your mail account. Follow the link to reset password."
+        }
+    )
+
+
+def send_forget_password_mail(email, id):
+    token = str(uuid.uuid4())
+    subject = "Reset Password Link"
+    message = f"Hello user, click on the link below to reset your password. \n http://localhost:4200/reset-password/{id}"
+    email_from = settings.EMAIL_HOST_USER
+    recipients = [email]
+    send_mail(subject, message, email_from, recipients)
+    print("Mail Sent\n\n\n")
+
+
+@api_view(["POST"])
+def resetPassword(request, pk):
+    profile = Profile.objects.get(id=pk)
+    user = profile.user
+    if request.data["password"] == request.data["confirmPassword"]:
+        user.set_password(request.data["password"])
+        user.save()
+        return JsonResponse({"message": "New Password set"})
+    return JsonResponse({"message": "Password does not match"})
 
 
 @api_view(["GET"])
 def getPosts(request):
+    print("\n\n\n\n", settings.EMAIL_HOST_USER, settings.EMAIL_HOST_PASSWORD)
     posts = Post.objects.all()
     serializer = PostSerializer(posts, many=True)
     return Response(serializer.data)
@@ -64,12 +117,15 @@ def getPosts(request):
 
 @api_view(["GET"])
 def getPost(request, pk):
-    post = Post.objects.get(id=pk)
-    comments = Comment.objects.filter(post=post)
-    commentserializer = CommentSerializer(comments, many=True)
-    serializer = PostSerializer(post)
-    response = {"Post": serializer.data, "Comments": commentserializer.data}
-    return Response(response)
+    try:
+        post = Post.objects.get(id=pk)
+        comments = Comment.objects.filter(post=post)
+        commentserializer = CommentSerializer(comments, many=True)
+        serializer = PostSerializer(post)
+        response = {"Post": serializer.data, "Comments": commentserializer.data}
+        return Response(response)
+    except:
+        return JsonResponse({"message": "Post not found"})
 
 
 @permission_classes([IsAuthenticated])
@@ -224,13 +280,16 @@ def updateProfile(request, pk):
 
     if request.user.check_password(data["password"]):
         profile = Profile.objects.get(id=pk)
+        img = profile.profileImage
         if request.user.profile == profile:
             profile.name = data["name"]
             profile.username = data["username"]
             profile.email = data["email"]
             profile.profileImage = data["profileImage"]
             if profile.profileImage == "":
-                profile.profileImage = "images\profileImages\mehdi.png"
+                profile.profileImage = (
+                    img if img != " " else "images\profileImages\mehdi.png"
+                )
 
             profile.save()
             serializer = ProfileSerializer(profile, many=False)
