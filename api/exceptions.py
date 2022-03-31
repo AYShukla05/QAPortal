@@ -21,7 +21,7 @@ def base_exception_handler(exc, context):
         print("Codes of APIException", exc.get_codes())
         print("Detail for for APIException", exc.detail)
         response.data = {
-            "details": exc.detail,
+            "details": {"message":exc.detail},
             "ErrorDetails": exc.get_full_details(),
         }
         if exc.get_codes() == ["invalid"]:

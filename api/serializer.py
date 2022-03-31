@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from profiles.models import Profile, Subscription
-from posts.models import Comment, Post, Notification
+from posts.models import Comment, Post, Notification, Vote
 from django.contrib.auth.models import User
 
 from rest_framework.validators import UniqueValidator
@@ -44,4 +44,12 @@ class NotificationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Notification
+        fields = "__all__"
+
+class VoidSerializer(serializers.ModelSerializer):
+    owner = ProfileSerializer(many=False)
+    post = PostSerializer(many=False)
+
+    class Meta:
+        model= Vote
         fields = "__all__"

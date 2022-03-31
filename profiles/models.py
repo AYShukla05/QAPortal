@@ -40,8 +40,14 @@ class Profile(models.Model):
 
 
 class Subscription(models.Model):
-    owner = models.ForeignKey(Profile, on_delete=models.CASCADE, null=True)
-    subscribeId = models.CharField(max_length=500, null=True)
+    owner = models.ForeignKey(
+        Profile, related_name="owner", on_delete=models.CASCADE, null=True
+    )
+    subscribedUser = models.ForeignKey(
+        Profile, related_name="subscribedUser", on_delete=models.CASCADE, null=True
+    )
+
+    # subscribeId = models.CharField(max_length=500, null=True)
     id = models.UUIDField(
         default=uuid.uuid4, unique=True, primary_key=True, editable=False
     )

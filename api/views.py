@@ -28,6 +28,7 @@ from .serializer import (
     PostSerializer,
     ProfileSerializer,
     SubscriptionSerializer,
+    VoidSerializer,
 )
 
 # from api import serializer
@@ -38,7 +39,6 @@ from .serializer import (
 def createUser(request):
     data = request.data
     try:
-        print("\n\n\nData", data)
         user = User.objects.create(username=data["username"], email=data["email"])
         password = data["password"]
         password1 = data["confirm-password"]
@@ -70,14 +70,12 @@ def createUser(request):
 @csrf_exempt
 def forgetPassword(request):
     data = request.data
-    print("DATA", data)
     name = data["username"]
     profile = Profile.objects.get(username=name)
     email = data["email"]
     if profile.email != email:
         return JsonResponse({"message": "Email and username does not match"})
     send_forget_password_mail(email, profile.id)
-    print("Send mail called\n\n\n")
     # Send email
     return JsonResponse(
         {
@@ -93,7 +91,6 @@ def send_forget_password_mail(email, id):
     email_from = settings.EMAIL_HOST_USER
     recipients = [email]
     send_mail(subject, message, email_from, recipients)
-    print("Mail Sent\n\n\n")
 
 
 @api_view(["POST"])
@@ -109,23 +106,53 @@ def resetPassword(request, pk):
 
 @api_view(["GET"])
 def getPosts(request):
-    print("\n\n\n\n", settings.EMAIL_HOST_USER, settings.EMAIL_HOST_PASSWORD)
     posts = Post.objects.all()
-    serializer = PostSerializer(posts, many=True)
-    return Response(serializer.data)
+    response = []
+    if request.user.is_authenticated != False:
+        for post in posts:
+            votes = Vote.objects.filter(owner=request.user.profile, post=post)
+            if len(votes) > 0:
+                vote = votes[0]
+            postSerial = PostSerializer(post, many=False)
+            response.append(
+                {
+                    "Post": postSerial.data,
+                    "Vote": vote.value if len(votes) > 0 else "None",
+                }
+            )
+        return Response(response)
+    else:
+        for post in posts:
+            postSerial = PostSerializer(post, many=False)
+            response.append(
+                {
+                    "Post": postSerial.data,
+                    "Vote": "None",
+                }
+            )
+        return Response(response)
 
 
 @api_view(["GET"])
 def getPost(request, pk):
-    try:
-        post = Post.objects.get(id=pk)
-        comments = Comment.objects.filter(post=post)
-        commentserializer = CommentSerializer(comments, many=True)
-        serializer = PostSerializer(post)
-        response = {"Post": serializer.data, "Comments": commentserializer.data}
-        return Response(response)
-    except:
-        return JsonResponse({"message": "Post not found"})
+    # try:
+    post = Post.objects.get(id=pk)
+    comments = Comment.objects.filter(post=post)
+    commentserializer = CommentSerializer(comments, many=True)
+    serializer = PostSerializer(post)
+    response = {"Post": serializer.data, "Comments": commentserializer.data}
+    if request.user.is_authenticated != False:
+        votes = Vote.objects.filter(owner=request.user.profile, post=post)
+        if len(votes) > 0:
+            vote = votes[0]
+        postSerial = PostSerializer(post, many=False)
+        response["Vote"] = vote.value if len(votes) > 0 else "None"
+    response["Vote"] = "None"
+    return Response(response)
+
+
+# except:
+#     return JsonResponse({"message": "Post not found"})
 
 
 @permission_classes([IsAuthenticated])
@@ -181,7 +208,8 @@ def addVote(request, pk):
     post.getVoteCount
 
     serializer = PostSerializer(post, many=False)
-    return Response(serializer.data)
+    response = {"Post": serializer.data, "Vote": vote.value}
+    return Response(response)
 
 
 @permission_classes([IsAuthenticated])
@@ -194,14 +222,14 @@ def addComment(request, pk):
     )
     comment.save()
     today = datetime.datetime.now()
-    date_time = today.strftime("%H:%M:%S, %m/%d/%Y ")
+    date_time = today.strftime("%H:%M, %m/%d/%Y ")
     notification = Notification.objects.create(
         owner=postObj.owner,
         post=postObj,
         messages=comment.owner.name
-        + " commented on your "
+        + ' commented on your "'
         + postObj.title
-        + " at "
+        + '" at '
         + date_time
         # + "on" + date.date()
     )
@@ -349,7 +377,7 @@ def subscribe(request):
     id = request.data["id"]
     subscription, created = Subscription.objects.get_or_create(
         owner=request.user.profile,
-        subscribeId=id,
+        subscribedUser=Profile.objects.get(id=id),
     )
     if created:
         subscription.save()
@@ -366,9 +394,23 @@ def getSubscribed(request):
     subscriptions = Subscription.objects.filter(owner=profile)
     profiles = []
     for subscription in subscriptions:
-        profile = Profile.objects.filter(id=subscription.subscribeId)
-        if profile:
-            profiles.append(profile[0])
+        profile1 = Profile.objects.filter(id=subscription.subscribedUser.id)
+        if profile1:
+            profiles.append(profile1[0])
+    serializer = ProfileSerializer(profiles, many=True)
+    return Response(serializer.data)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def getFollowers(request):
+    profile = request.user.profile
+    subscriptions = Subscription.objects.filter(subscribedUser=profile)
+    profiles = []
+    for subscription in subscriptions:
+        profile1 = Profile.objects.filter(id=subscription.owner.id)
+        if profile1:
+            profiles.append(profile1[0])
     serializer = ProfileSerializer(profiles, many=True)
     return Response(serializer.data)
 
@@ -380,3 +422,37 @@ def getNotifications(request):
     notifications = Notification.objects.filter(owner=profile)
     serializer = NotificationSerializer(notifications, many=True)
     return Response(serializer.data)
+
+
+@permission_classes([IsAuthenticated])
+@api_view(["GET"])
+def getUnreadNotificationCount(request):
+    profile = request.user.profile
+    count = 0
+    notifications = Notification.objects.filter(owner=profile)
+    for notification in notifications:
+        if notification.isRead == False:
+            count += 1
+    return JsonResponse({"unreadNotification": count})
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def readNotification(request, pk):
+    profile = request.user.profile
+    notification = Notification.objects.get(id=pk)
+    notification.isRead = True
+    notification.save()
+    notifications = Notification.objects.filter(owner=profile, isRead=False)
+    return JsonResponse({"unreadNotification": len(notifications)})
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def readAllNotification(request):
+    profile = request.user.profile
+    notifications = Notification.objects.filter(owner=profile)
+    for notification in notifications:
+        notification.isRead = True
+        notification.save()
+    return JsonResponse({"unreadNotification": 0})

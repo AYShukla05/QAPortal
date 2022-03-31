@@ -26,9 +26,13 @@ urlpatterns = [
     path("add-vote/<str:pk>", views.addVote),
     path("subscribe", views.subscribe),
     path("get-subscribed", views.getSubscribed),
+    path("get-followers", views.getFollowers),
     path("get-notifications", views.getNotifications),
+    path("read-notifications/<str:pk>", views.readNotification),
+    path("read-all-notifications", views.readAllNotification),
+    path("get-unread-notifications-count", views.getUnreadNotificationCount),
     path("get-my-profile", views.getMyProfile),
     path("change-password", views.changePassword),
     path("forgot-password", views.forgetPassword),
-    path("reset-password/<str:pk>", views.resetPassword)
+    path("reset-password/<str:pk>", views.resetPassword),
 ]

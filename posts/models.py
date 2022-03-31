@@ -73,7 +73,11 @@ class Comment(models.Model):
 class Notification(models.Model):
     owner = models.ForeignKey(Profile, on_delete=models.CASCADE, null=True)
     post = models.ForeignKey(Post, on_delete=models.SET_NULL, null=True)
+    isRead = models.BooleanField(default=False)
     messages = models.TextField(max_length=1000)
+    id = models.UUIDField(
+        default=uuid.uuid4, unique=True, primary_key=True, editable=False
+    )
 
     def __str__(self):
         return self.owner.name
