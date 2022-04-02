@@ -7,7 +7,7 @@ import uuid
 from django.contrib.auth.models import User
 
 from QAPortal.settings import BASE_DIR
-
+import random
 
 # def upload_path(instance, filename):
 #     return BASE_DIR.join(["ProfileImage", filename])
@@ -28,6 +28,7 @@ class Profile(models.Model):
     name = models.CharField(max_length=200)
     email = models.EmailField(max_length=200, null=True, blank=True)
     is_verified = models.BooleanField(default=False)
+    verificationToken = models.IntegerField(default=random.randint(0, 999999))
     password = models.CharField(max_length=1000)
 
     def __str__(self):

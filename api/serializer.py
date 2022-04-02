@@ -12,7 +12,15 @@ class ProfileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Profile
-        fields = ['user', 'profileImage', 'username', 'name', 'email', 'id']
+        fields = [
+            "user",
+            "profileImage",
+            "username",
+            "name",
+            "email",
+            "id",
+            "is_verified",
+        ]
 
 
 class PostSerializer(serializers.ModelSerializer):
@@ -46,10 +54,11 @@ class NotificationSerializer(serializers.ModelSerializer):
         model = Notification
         fields = "__all__"
 
+
 class VoidSerializer(serializers.ModelSerializer):
     owner = ProfileSerializer(many=False)
     post = PostSerializer(many=False)
 
     class Meta:
-        model= Vote
+        model = Vote
         fields = "__all__"

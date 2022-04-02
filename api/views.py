@@ -3,8 +3,8 @@ import datetime
 
 # from django.forms import ValidationError
 
-from django.db import IntegrityError
 from django.http import JsonResponse
+from django.shortcuts import redirect
 
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
@@ -28,7 +28,6 @@ from .serializer import (
     PostSerializer,
     ProfileSerializer,
     SubscriptionSerializer,
-    VoidSerializer,
 )
 
 # from api import serializer
@@ -56,8 +55,10 @@ def createUser(request):
         if profile.profileImage == "":
             profile.profileImage = "images\profileImages\mehdi.png"
         profile.save()
-
-        profiles = Profile.objects.all()
+        verification_mail(
+            profile.email, profile.id, profile.name, profile.verificationToken
+        )
+        profiles = Profile.objects.filter(is_verified=True)
         serializer = ProfileSerializer(profiles, many=True)
         return Response(serializer.data)
     except Exception as e:
@@ -66,16 +67,36 @@ def createUser(request):
     #     return JsonResponse({"message": "Username or Email already exists", "error":"Email and Username should be unique", "status": 400})
 
 
+def verification_mail(email, id, name, token):
+    subject = "Verification Email"
+    message = f"Hello {name},\n Welcome to Quora. We are delighted to see you participate.\n Please activate your account by verifying your email. Click on the link below.\n http://localhost:4200/verifying/{id}/{token}"
+    email_from = settings.EMAIL_HOST_USER
+    recipients = [email]
+    send_mail(subject, message, email_from, recipients)
+
+
+@api_view(["GET"])
+def activateAccount(request, pk, sk):
+    print("\n\n\nActivating account", request)
+    print("Profile Id", pk)
+    profile = Profile.objects.get(id=pk)
+    if int(sk) == profile.verificationToken:
+        profile.is_verified = True
+        profile.save()
+    serializer = ProfileSerializer(profile, many=False)
+    return Response(serializer.data)
+
+
 @api_view(["POST"])
 @csrf_exempt
 def forgetPassword(request):
     data = request.data
     name = data["username"]
-    profile = Profile.objects.get(username=name)
+    profile = Profile.objects.get(username=name, is_verified=True)
     email = data["email"]
     if profile.email != email:
         return JsonResponse({"message": "Email and username does not match"})
-    send_forget_password_mail(email, profile.id)
+    send_forget_password_mail(email, profile.id, profile.name)
     # Send email
     return JsonResponse(
         {
@@ -84,10 +105,10 @@ def forgetPassword(request):
     )
 
 
-def send_forget_password_mail(email, id):
+def send_forget_password_mail(email, id, name):
     token = str(uuid.uuid4())
     subject = "Reset Password Link"
-    message = f"Hello user, click on the link below to reset your password. \n http://localhost:4200/reset-password/{id}"
+    message = f"Hello {name}, click on the link below to reset your password. \n http://localhost:4200/reset-password/{id}"
     email_from = settings.EMAIL_HOST_USER
     recipients = [email]
     send_mail(subject, message, email_from, recipients)
@@ -271,7 +292,7 @@ def deleteComment(request, pk):
 @api_view(["GET"])
 @permission_classes([AllowAny])
 def getProfiles(request):
-    profiles = Profile.objects.all()
+    profiles = Profile.objects.filter(is_verified=True)
     serializer = ProfileSerializer(profiles, many=True)
     return Response(serializer.data)
 
@@ -307,7 +328,7 @@ def updateProfile(request, pk):
     data = request.data
 
     if request.user.check_password(data["password"]):
-        profile = Profile.objects.get(id=pk)
+        profile = Profile.objects.get(id=pk, is_verified=True)
         img = profile.profileImage
         if request.user.profile == profile:
             profile.name = data["name"]
@@ -345,7 +366,7 @@ def deleteProfile(request, pk):
     profile = Profile.objects.get(id=pk)
     if request.user.profile == profile:
         profile.delete()
-    profiles = Profile.objects.all()
+    profiles = Profile.objects.filter(is_verified=True)
     serializer = ProfileSerializer(profiles, many=True)
     return Response(serializer.data)
 
@@ -377,7 +398,7 @@ def subscribe(request):
     id = request.data["id"]
     subscription, created = Subscription.objects.get_or_create(
         owner=request.user.profile,
-        subscribedUser=Profile.objects.get(id=id),
+        subscribedUser=Profile.objects.get(id=id, is_verified=True),
     )
     if created:
         subscription.save()
@@ -394,7 +415,9 @@ def getSubscribed(request):
     subscriptions = Subscription.objects.filter(owner=profile)
     profiles = []
     for subscription in subscriptions:
-        profile1 = Profile.objects.filter(id=subscription.subscribedUser.id)
+        profile1 = Profile.objects.filter(
+            id=subscription.subscribedUser.id, is_verified=True
+        )
         if profile1:
             profiles.append(profile1[0])
     serializer = ProfileSerializer(profiles, many=True)
@@ -408,7 +431,7 @@ def getFollowers(request):
     subscriptions = Subscription.objects.filter(subscribedUser=profile)
     profiles = []
     for subscription in subscriptions:
-        profile1 = Profile.objects.filter(id=subscription.owner.id)
+        profile1 = Profile.objects.filter(id=subscription.owner.id, is_verified=True)
         if profile1:
             profiles.append(profile1[0])
     serializer = ProfileSerializer(profiles, many=True)
