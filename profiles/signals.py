@@ -7,17 +7,6 @@ from django.conf import settings
 from .models import Profile
 
 
-def createProfile(sender, instance, created, **kwargs):
-    if created:
-        user = instance
-        profile = Profile.objects.create(
-            user=instance,
-            username=user.username,
-            name=user.username,
-            password=user.password,
-        )
-
-
 def updateUser(sender, instance, created, **kwargs):
     profile = instance.user
     user = profile
@@ -32,6 +21,5 @@ def deleteUser(sender, instance, **kwargs):
     user.delete()
 
 
-# post_save.connect(createProfile, sender=User)
 post_save.connect(updateUser, sender=Profile)
 post_delete.connect(deleteUser, sender=Profile)

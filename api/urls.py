@@ -36,4 +36,5 @@ urlpatterns = [
     path("forgot-password", views.forgetPassword),
     path("reset-password/<str:pk>", views.resetPassword),
     path("verify/<str:pk>/<str:sk>", views.activateAccount),
+    path("resend-mail/<str:pk>", views.resendVerificationEmail),
 ]

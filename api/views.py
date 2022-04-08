@@ -76,6 +76,16 @@ def verification_mail(email, id, name, token):
 
 
 @api_view(["GET"])
+def resendVerificationEmail(request,pk):
+    print("Resend")
+    profile = Profile.objects.get(id=pk)
+    verification_mail(
+        profile.email, profile.id, profile.name, profile.verificationToken
+    )
+    return JsonResponse({"message": "Email Sent"})
+
+
+@api_view(["GET"])
 def activateAccount(request, pk, sk):
     print("\n\n\nActivating account", request)
     print("Profile Id", pk)
